@@ -1,0 +1,212 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Travel Wishlist Map</title>
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css" />
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="style.css" />
+</head>
+<body>
+
+    <header class="header">
+        <div class="header-left">
+            <div class="logo">
+                <i class="fas fa-plane-departure"></i>
+                <h1>Travel Wishlist</h1>
+            </div>
+        </div>
+
+        <div class="search-container">
+            <div class="search-wrapper" id="searchWrapper">
+                <i class="fas fa-search search-icon"></i>
+                <input type="text" id="searchInput" placeholder="Search for any place in the world..." autocomplete="off" />
+                <button id="searchBtn" class="search-btn">
+                    <i class="fas fa-arrow-right"></i>
+                </button>
+            </div>
+            <div id="searchResults" class="search-results"></div>
+        </div>
+
+        <div class="header-stats">
+            <div class="stat wishlist-stat">
+                <i class="fas fa-star"></i>
+                <span id="wishlistCount">0</span>
+                <small>Wishlist</small>
+            </div>
+            <div class="stat-divider"></div>
+            <div class="stat visited-stat">
+                <i class="fas fa-check-circle"></i>
+                <span id="visitedCount">0</span>
+                <small>Visited</small>
+            </div>
+        </div>
+
+        <button class="settings-btn" id="settingsBtn" title="API Settings">
+            <i class="fas fa-key"></i>
+        </button>
+    </header>
+
+    <div class="main-layout">
+
+        <aside class="sidebar" id="sidebar">
+            <div class="sidebar-header">
+                <h2><i class="fas fa-map-marked-alt"></i> My Places</h2>
+                <div class="filter-tabs">
+                    <button class="filter-tab active" data-filter="all">All</button>
+                    <button class="filter-tab" data-filter="wishlist">
+                        <i class="fas fa-star"></i> Wishlist
+                    </button>
+                    <button class="filter-tab" data-filter="visited">
+                        <i class="fas fa-check"></i> Visited
+                    </button>
+                </div>
+            </div>
+            <div class="places-list" id="placesList">
+                <div class="empty-state" id="emptyState">
+                    <div class="empty-icon">
+                        <i class="fas fa-map-marked-alt"></i>
+                    </div>
+                    <h3>No places yet</h3>
+                    <p>Search for a destination and pin it to start building your travel wishlist!</p>
+                </div>
+            </div>
+        </aside>
+
+        <div class="map-wrapper">
+            <div id="map"></div>
+            <button class="toggle-sidebar-btn" id="toggleSidebar" title="Toggle sidebar">
+                <i class="fas fa-chevron-left" id="toggleIcon"></i>
+            </button>
+        </div>
+
+    </div>
+
+    <!-- ── Add Place Modal ───────────────────────────────────────── -->
+    <div class="modal-overlay" id="addModalOverlay">
+        <div class="modal">
+            <div class="modal-header">
+                <div class="modal-title-group">
+                    <div class="modal-icon"><i class="fas fa-map-pin"></i></div>
+                    <h3 id="modalTitle">Add to Wishlist</h3>
+                </div>
+                <button class="modal-close" id="addModalClose"><i class="fas fa-times"></i></button>
+            </div>
+            <div class="modal-body">
+                <div class="place-info-card" id="modalPlaceInfo"></div>
+
+                <!-- Note -->
+                <div class="form-group">
+                    <label for="noteInput">
+                        <i class="fas fa-sticky-note"></i>
+                        Your Note
+                        <span class="label-hint">optional</span>
+                    </label>
+                    <textarea id="noteInput" placeholder='e.g. "Dream honeymoon spot", "Must see the sunset here"...' rows="2"></textarea>
+                </div>
+
+                <!-- Status -->
+                <div class="form-group">
+                    <label><i class="fas fa-tag"></i> Status</label>
+                    <div class="status-toggle">
+                        <button class="status-btn active" data-status="wishlist">
+                            <span class="status-dot wishlist-dot"></span>
+                            <span>Wishlist</span>
+                        </button>
+                        <button class="status-btn" data-status="visited">
+                            <span class="status-dot visited-dot"></span>
+                            <span>Visited</span>
+                        </button>
+                    </div>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button class="btn btn-secondary" id="addModalCancel">Cancel</button>
+                <button class="btn btn-primary" id="addModalSave">
+                    <i class="fas fa-map-pin"></i> Add Pin
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- ── Edit Modal ────────────────────────────────────────────── -->
+    <div class="modal-overlay" id="editModalOverlay">
+        <div class="modal">
+            <div class="modal-header">
+                <div class="modal-title-group">
+                    <div class="modal-icon"><i class="fas fa-pencil-alt"></i></div>
+                    <h3>Edit Place</h3>
+                </div>
+                <button class="modal-close" id="editModalClose"><i class="fas fa-times"></i></button>
+            </div>
+            <div class="modal-body">
+                <div class="place-info-card" id="editModalPlaceInfo"></div>
+
+                <!-- Note -->
+                <div class="form-group">
+                    <label for="editNoteInput">
+                        <i class="fas fa-sticky-note"></i>
+                        Your Note
+                    </label>
+                    <textarea id="editNoteInput" rows="2"></textarea>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button class="btn btn-secondary" id="editModalCancel">Cancel</button>
+                <button class="btn btn-primary" id="editModalSave">
+                    <i class="fas fa-save"></i> Save Changes
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- ── Settings Modal ────────────────────────────────────────── -->
+    <div class="modal-overlay" id="settingsModalOverlay">
+        <div class="modal">
+            <div class="modal-header">
+                <div class="modal-title-group">
+                    <div class="modal-icon"><i class="fas fa-robot"></i></div>
+                    <h3>AI Settings</h3>
+                </div>
+                <button class="modal-close" id="settingsModalClose"><i class="fas fa-times"></i></button>
+            </div>
+            <div class="modal-body">
+                <div class="form-group">
+                    <label for="apiKeyInput">
+                        <i class="fas fa-key"></i>
+                        Anthropic API Key
+                    </label>
+                    <div class="api-key-wrap">
+                        <input type="password" class="api-key-input" id="apiKeyInput" placeholder="sk-ant-api03-...">
+                        <button class="toggle-key-vis" id="toggleKeyVis" type="button" title="Show/hide key">
+                            <i class="fas fa-eye"></i>
+                        </button>
+                    </div>
+                    <p class="settings-hint">
+                        <i class="fas fa-sparkles"></i>
+                        Used to auto-generate dreamy travel intentions for each pin you add.
+                        Your key is stored locally in your browser only and never shared.
+                    </p>
+                </div>
+                <div class="ai-preview-box">
+                    <div class="ai-preview-label"><i class="fas fa-magic"></i> AI Intention Preview</div>
+                    <div class="ai-preview-text">"Chase golden sunsets over ancient ruins and let wanderlust lead the way"</div>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button class="btn btn-secondary" id="settingsCancel">Cancel</button>
+                <button class="btn btn-primary" id="settingsSave">
+                    <i class="fas fa-save"></i> Save Key
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <div id="toast" class="toast"></div>
+
+    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+    <script src="app.js"></script>
+</body>
+</html>
