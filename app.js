@@ -27,8 +27,8 @@ function migrateExistingPlaces() {
 
     places.forEach(place => {
         if (place.photo && (BAD_PHOTO.test(place.photo) || place.photo.endsWith('.svg'))) {
-            const seed = place.name.split(',')[0].trim().toLowerCase().replace(/\s+/g, '-');
-            place.photo = `https://picsum.photos/seed/${encodeURIComponent(seed)}/800/400`;
+            const firstWord = place.name.split(/[\s,]/)[0];
+            place.photo = `https://picsum.photos/seed/${encodeURIComponent(firstWord)}/800/400`;
             changed = true;
         }
         if (!place.intention || place.intention.startsWith('A place waiting to be discovered')) {
@@ -118,8 +118,8 @@ function buildPopup(place) {
 
 /* ─── Auto-Photo: Picsum (deterministic, always scenic) ─────── */
 function fetchPlacePhoto(place) {
-    const seed = place.name.split(',')[0].trim().toLowerCase().replace(/\s+/g, '-');
-    setPlacePhoto(place.id, `https://picsum.photos/seed/${encodeURIComponent(seed)}/800/400`);
+    const firstPart = place.name.split(',')[0].trim();
+    setPlacePhoto(place.id, `https://picsum.photos/seed/${encodeURIComponent(firstPart)}/800/400`);
 }
 
 function setPlacePhoto(id, photoUrl) {
