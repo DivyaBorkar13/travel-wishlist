@@ -14,10 +14,31 @@ const loadingPhotos     = new Set();
 document.addEventListener('DOMContentLoaded', () => {
     initMap();
     loadFromStorage();
+    migrateExistingPlaces();
     renderSidebar();
     updateStats();
     bindEvents();
 });
+
+/* ─── One-time Migration ─────────────────────────────────────── */
+function migrateExistingPlaces() {
+    const BAD_PHOTO = /flag|coat|emblem|wikipedia|wiki/i;
+    let changed = false;
+
+    places.forEach(place => {
+        if (place.photo && (BAD_PHOTO.test(place.photo) || place.photo.endsWith('.svg'))) {
+            const seed = place.name.split(',')[0].trim().toLowerCase().replace(/\s+/g, '-');
+            place.photo = `https://picsum.photos/seed/${encodeURIComponent(seed)}/800/400`;
+            changed = true;
+        }
+        if (!place.intention || place.intention.startsWith('A place waiting to be discovered')) {
+            place.intention = generateFallbackIntention(place.name);
+            changed = true;
+        }
+    });
+
+    if (changed) persist();
+}
 
 /* ─── Map ────────────────────────────────────────────────────── */
 function initMap() {
