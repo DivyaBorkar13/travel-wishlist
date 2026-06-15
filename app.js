@@ -95,28 +95,36 @@ function buildPopup(place) {
         </div>`;
 }
 
-/* ─── Auto-Photo: Wikipedia → Picsum → gradient ─────────────── */
+/* ─── Auto-Photo: Wikipedia → Picsum ─────────────────────────── */
+const FLAG_PATTERN = /flag|coat|emblem|shield|logo|banner|symbol|insignia|seal|crest|heraldry|blazon/i;
+
+async function fetchWikipediaPhoto(searchTerm) {
+    const res = await fetch(
+        `https://en.wikipedia.org/api/rest_v1/page/summary/${encodeURIComponent(searchTerm)}`,
+        { headers: { Accept: 'application/json' } }
+    );
+    if (!res.ok) return null;
+    const data = await res.json();
+    const url = data.thumbnail?.source;
+    if (!url || FLAG_PATTERN.test(url)) return null;
+    return url;
+}
+
 async function fetchPlacePhoto(place) {
     const keyword = place.name.split(',')[0].trim();
+    const seed    = keyword.toLowerCase().replace(/\s+/g, '-');
+    const picsum  = `https://picsum.photos/seed/${encodeURIComponent(seed)}/800/400`;
 
-    // 1. Try Wikipedia summary API
     try {
-        const res = await fetch(
-            `https://en.wikipedia.org/api/rest_v1/page/summary/${encodeURIComponent(keyword)}`,
-            { headers: { Accept: 'application/json' } }
-        );
-        if (res.ok) {
-            const data = await res.json();
-            if (data.thumbnail?.source) {
-                setPlacePhoto(place.id, data.thumbnail.source);
-                return;
-            }
-        }
-    } catch { /* fall through */ }
-
-    // 2. Picsum Photos fallback — deterministic beautiful landscape per seed
-    const seed = keyword.toLowerCase().replace(/\s+/g, '-');
-    setPlacePhoto(place.id, `https://picsum.photos/seed/${encodeURIComponent(seed)}/800/400`);
+        // 1. Wikipedia with "landscape" appended
+        let url = await fetchWikipediaPhoto(`${keyword} landscape`);
+        // 2. Wikipedia with just the place name
+        if (!url) url = await fetchWikipediaPhoto(keyword);
+        // 3. Picsum safe fallback
+        setPlacePhoto(place.id, url || picsum);
+    } catch {
+        setPlacePhoto(place.id, picsum);
+    }
 }
 
 function setPlacePhoto(id, photoUrl) {
@@ -145,30 +153,120 @@ function getPlaceGradient(name) {
     return `linear-gradient(135deg,${c1},${c2})`;
 }
 
+/* ─── Fallback Intention Generator ──────────────────────────── */
+function generateFallbackIntention(placeName) {
+    const n = placeName.toLowerCase();
+
+    const pools = [
+        {
+            re: /beach|island|coast|bay|sea|ocean|caribbean|maldive|bali|hawaii|fiji|ibiza|santorini|riviera|shore|cove|lagoon|reef|coral/,
+            phrases: [
+                'Lose yourself in turquoise waters and let the ocean breeze carry your worries away',
+                'Wake up to the sound of waves and watch the horizon glow with golden light',
+                'Dive into crystalline seas and discover paradise hidden beneath the surface',
+                'Stroll barefoot along endless shores where the sea meets the sky in pure bliss',
+            ]
+        },
+        {
+            re: /mountain|alp|peak|summit|everest|himalaya|glacier|volcano|ridge|canyon|cliff|fjord|highland|sierra|rockies|andes/,
+            phrases: [
+                'Breathe the crisp alpine air and feel the world shrink beneath your feet',
+                'Chase dramatic peaks at dawn and find silence only mountains can offer',
+                'Trek through ancient paths where glaciers meet the sky in breathtaking splendor',
+                'Stand above the clouds and let the vast wilderness ignite your soul',
+            ]
+        },
+        {
+            re: /rome|athens|cairo|jerusalem|angkor|machu|petra|colosseum|parthenon|pyramid|ancient|temple|ruin|acropolis/,
+            phrases: [
+                'Walk the same stones as ancient civilizations and feel history breathe through every ruin',
+                'Stand before timeless monuments and let centuries of stories wash over you',
+                'Touch the walls of antiquity and marvel at the human spirit carved in stone',
+            ]
+        },
+        {
+            re: /desert|sahara|dune|oasis|marrakech|morocco|nevada|arizona/,
+            phrases: [
+                'Watch the sun paint shifting dunes in amber and feel the ancient silence surround you',
+                'Ride across golden sands at sunset and let the vastness of the desert fill your heart',
+                'Sleep under a sky full of stars where the desert stretches endlessly in every direction',
+            ]
+        },
+        {
+            re: /forest|jungle|amazon|rainforest|woodland|grove|park|botanical/,
+            phrases: [
+                'Wander through ancient trees and breathe in the rich, earthy magic of wild nature',
+                'Follow winding trails into verdant canopies where light filters through like liquid gold',
+            ]
+        },
+        {
+            re: /lake|river|falls|waterfall|niagara|como|ontario|baikal|titicaca|victoria|bled/,
+            phrases: [
+                'Watch morning mist rise from glassy waters and feel the world slow to a peaceful stillness',
+                'Kayak through mirror-like reflections where mountains meet water in perfect harmony',
+            ]
+        },
+        {
+            re: /city|tokyo|paris|london|york|rome|berlin|madrid|amsterdam|dubai|singapore|bangkok|istanbul|prague|vienna|barcelona|milan|venice|florence|kyoto|seoul|beijing|shanghai|mumbai|metro|downtown/,
+            phrases: [
+                'Wander cobblestone streets at dusk and let the city\'s heartbeat become your own',
+                'Discover hidden café corners and let every alley reveal a new story waiting to be lived',
+                'Lose yourself in the vibrant rhythm of street markets, art, and local flavors',
+                'Sip coffee in sun-drenched plazas and absorb the soul of the city at every turn',
+            ]
+        },
+    ];
+
+    let h = 0;
+    for (let i = 0; i < placeName.length; i++) h = (h << 5) - h + placeName.charCodeAt(i);
+
+    for (const { re, phrases } of pools) {
+        if (re.test(n)) return phrases[Math.abs(h) % phrases.length];
+    }
+
+    const defaults = [
+        'Arrive with wonder and leave with stories that will last a lifetime',
+        'Let every corner of this place reveal something beautiful you never expected to find',
+        'Embrace the unknown and discover what makes this place utterly unforgettable',
+        'Wander freely and let the spirit of this place transform the way you see the world',
+    ];
+    return defaults[Math.abs(h) % defaults.length];
+}
+
 /* ─── Intention Generation ───────────────────────────────────── */
 async function generateIntention(place) {
     const key = getApiKey();
-    if (!key) { finaliseIntention(place.id, 'A place waiting to be discovered ✨'); return; }
+    if (!key) {
+        finaliseIntention(place.id, generateFallbackIntention(place.name));
+        return;
+    }
     try {
         const res = await fetch('https://api.anthropic.com/v1/messages', {
             method: 'POST',
             headers: {
+                'content-type': 'application/json',
                 'x-api-key': key,
                 'anthropic-version': '2023-06-01',
-                'content-type': 'application/json',
                 'anthropic-dangerous-direct-browser-access': 'true'
             },
             body: JSON.stringify({
                 model: 'claude-sonnet-4-6',
-                max_tokens: 80,
+                max_tokens: 100,
                 messages: [{ role: 'user', content: `Write a single dreamy, evocative travel intention for ${place.name}. One sentence, 10-18 words, starting with an active verb. Poetic and sensory. No quotes. No period at end. Examples: "Sip coffee at a sidewalk café and get lost in Montmartre", "Chase golden sunsets and dance barefoot on the beach"` }]
             })
         });
-        if (!res.ok) throw new Error(res.status);
+        if (!res.ok) {
+            const errText = await res.text().catch(() => '');
+            console.log(`[intention] Anthropic API error ${res.status}:`, errText);
+            throw new Error(`HTTP ${res.status}`);
+        }
         const data = await res.json();
         const text = data.content?.[0]?.text?.trim().replace(/^["'""'']|["'""'']$/g, '') || '';
-        finaliseIntention(place.id, text || 'A place waiting to be discovered ✨');
-    } catch { finaliseIntention(place.id, 'A place waiting to be discovered ✨'); }
+        finaliseIntention(place.id, text || generateFallbackIntention(place.name));
+    } catch (err) {
+        console.log('[intention] generation failed:', err.message || err);
+        finaliseIntention(place.id, generateFallbackIntention(place.name));
+    }
 }
 
 function finaliseIntention(id, intention) {
